@@ -31,6 +31,14 @@ struct lval;
 struct lenv;
 typedef struct lval lval;
 typedef struct lenv lenv;
+mpc_parser_t* Number;
+mpc_parser_t* Symbol;
+mpc_parser_t* String;
+mpc_parser_t* Comment;
+mpc_parser_t* Sexpr;
+mpc_parser_t* Qexpr;
+mpc_parser_t* Expr;
+mpc_parser_t* Lisp;
 
 
 /** LISP VALUE **/
@@ -404,6 +412,7 @@ void lenv_def(lenv* e, lval* k, lval* v) {
             "Function '%s' passed {} for argument %i.", func, index);
 
 lval* lval_eval(lenv* e, lval* v);
+lval* lval_read(mpc_ast_t* t);
 
 lval* builtin_lambda(lenv* e, lval* a) {
     LASSERT_NUM("\\", a, 2);
@@ -603,6 +612,41 @@ lval* builtin_ge(lenv* e, lval* a) {
 
 lval* builtin_le(lenv* e, lval* a) {
     return builtin_ord(e, a, "<=");
+}
+
+lval* builtin_load(lenv* e, lval* a) {
+    LASSERT_NUM("load", a, 1);
+    LASSERT_TYPE("load", a, 0, LVAL_STR);
+
+    mpc_result_t r;
+    if (mpc_parse_contents(a->cell[0]->str, Lisp, &r)) {
+        // Read file content
+        lval* expr = lval_read(r.output);
+        mpc_ast_delete(r.output);
+
+        // Eval each expression
+        while (expr->count) {
+            lval* x = lval_eval(e, lval_pop(expr, 0));
+            if (x->type == LVAL_ERR)
+                lval_println(x);
+            lval_del(x);
+        }
+        lval_del(expr);
+        lval_del(a);
+
+        // Return empty list
+        return lval_sexpr();
+    } else {
+        // Get parse error as string
+        char* err_msg = mpc_err_string(r.error);
+        mpc_err_delete(r.error);
+
+        lval* err = lval_err("Could not load Library %s", err_msg);
+        free(err_msg);
+        lval_del(a);
+
+        return err;
+    }
 }
 
 bool lval_eq(lval* x, lval* y) {
