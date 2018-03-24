@@ -922,36 +922,9 @@ lval* lval_read(mpc_ast_t* t) {
 
 /** MAIN **/
 
-int main(int argc, char** argv) {
-    mpc_parser_t* Number  = mpc_new("number");
-    mpc_parser_t* Symbol  = mpc_new("symbol");
-    mpc_parser_t* String  = mpc_new("string");
-    mpc_parser_t* Comment = mpc_new("comment");
-    mpc_parser_t* Sexpr   = mpc_new("sexpr");
-    mpc_parser_t* Qexpr   = mpc_new("qexpr");
-    mpc_parser_t* Expr    = mpc_new("expr");
-    mpc_parser_t* Lisp    = mpc_new("lisp");
-
-    mpca_lang(MPCA_LANG_DEFAULT,
-            "                                             \
-            number  : /-?[0-9]+/ ;                        \
-            symbol  : /[a-zA-Z0-9%_+\\-*\\/\\\\=<>!&]+/ ; \
-            string  : /\"(\\\\.|[^\"])*\"/ ;              \
-            comment : /;[^\\r\\n]*/ ;                     \
-            sexpr   : '(' <expr>* ')' ;                   \
-            qexpr   : '{' <expr>* '}' ;                   \
-            expr    : <number>  | <symbol> | <string>     \
-                    | <comment> | <sexpr> | <qexpr> ;     \
-            lisp    : /^/ <expr>* /$/ ;                   \
-            ",
-            Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Lisp);
-
-    printf("Shitlisp version %s\n", VERSION);
-    printf("Setting up environment...\n");
-    lenv* e = lenv_new();
-    lenv_add_builtins(e);
+void repl(lenv* e) {
+    printf("Starting interactive prompt...\n");
     printf("Press ^D to exit.\n");
-
     for(;;) {
         char* input = readline("O))) ");
         if (input == 0)
@@ -972,6 +945,53 @@ int main(int argc, char** argv) {
         }
 
         free(input);
+    }
+
+}
+
+void exec_file(lenv* e, char* filename) {
+    lval* args = lval_add(lval_sexpr(), lval_str(filename));
+    lval* x = builtin_load(e, args);
+
+    if (x->type == LVAL_ERR)
+        lval_println(x);
+    lval_del(x);
+}
+
+int main(int argc, char** argv) {
+    Number  = mpc_new("number");
+    Symbol  = mpc_new("symbol");
+    String  = mpc_new("string");
+    Comment = mpc_new("comment");
+    Sexpr   = mpc_new("sexpr");
+    Qexpr   = mpc_new("qexpr");
+    Expr    = mpc_new("expr");
+    Lisp    = mpc_new("lisp");
+
+    mpca_lang(MPCA_LANG_DEFAULT,
+            "                                             \
+            number  : /-?[0-9]+/ ;                        \
+            symbol  : /[a-zA-Z0-9%_+\\-*\\/\\\\=<>!&]+/ ; \
+            string  : /\"(\\\\.|[^\"])*\"/ ;              \
+            comment : /;[^\\r\\n]*/ ;                     \
+            sexpr   : '(' <expr>* ')' ;                   \
+            qexpr   : '{' <expr>* '}' ;                   \
+            expr    : <number>  | <symbol> | <string>     \
+                    | <comment> | <sexpr>  | <qexpr> ;    \
+            lisp    : /^/ <expr>* /$/ ;                   \
+            ",
+            Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Lisp);
+
+    printf("Shitlisp version %s\n", VERSION);
+    printf("Setting up environment...\n");
+    lenv* e = lenv_new();
+    lenv_add_builtins(e);
+
+    if (argc >= 2) {
+        for (int i = 1; i < argc; i++)
+            exec_file(e, argv[i]);
+    } else {
+        repl(e);
     }
 
     lenv_del(e);
