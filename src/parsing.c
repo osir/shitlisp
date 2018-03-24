@@ -718,6 +718,28 @@ lval* builtin_if(lenv* e, lval* a) {
     return x;
 }
 
+lval* builtin_print(lenv* e, lval* a) {
+    for (int i = 0; i < a->count; i++) {
+        lval_print(a->cell[i]);
+        putchar(' ');
+    }
+
+    putchar('\n');
+    lval_del(a);
+
+    return lval_sexpr();
+}
+
+lval* builtin_error(lenv* e, lval* a) {
+    LASSERT_NUM("error", a, 1);
+    LASSERT_TYPE("error", a, 0, LVAL_STR);
+
+    lval* err = lval_err(a->cell[0]->str);
+
+    lval_del(a);
+    return err;
+}
+
 void lenv_add_builtin(lenv* e, char* name, lbuiltin func) {
     lval* k = lval_sym(name);
     lval* v = lval_fun(func);
@@ -727,6 +749,11 @@ void lenv_add_builtin(lenv* e, char* name, lbuiltin func) {
 }
 
 void lenv_add_builtins(lenv* e) {
+    // String functions
+    lenv_add_builtin(e, "load", builtin_load);
+    lenv_add_builtin(e, "error", builtin_error);
+    lenv_add_builtin(e, "print", builtin_print);
+
     // Variable functions
     lenv_add_builtin(e, "\\", builtin_lambda);
     lenv_add_builtin(e, "def", builtin_def);
